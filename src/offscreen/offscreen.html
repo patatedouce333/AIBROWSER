@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Cometeor Offscreen Document</title>
+</head>
+<body>
+  <script>
+    // Keep-alive heartbeat to service worker
+    setInterval(() => {
+      chrome.runtime.sendMessage({ type: 'HEARTBEAT' });
+    }, 20000);
+
+    console.log('Offscreen document loaded and sending heartbeats');
+  </script>
+</body>
+</html>

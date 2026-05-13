@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Cometeor Options</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+      width: 400px;
+      background: #f8f9fa;
+    }
+
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    button {
+      background: #4285f4;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    button:hover {
+      background: #3367d6;
+    }
+
+    .status {
+      margin-top: 16px;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .status.success {
+      background: #e8f5e8;
+      color: #2e7d32;
+    }
+
+    .status.error {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #3498db;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Cometeor Settings</h2>
+
+    <h3>Google Cloud Configuration</h3>
+    <div class="form-group">
+      <label for="projectId">GCP Project ID:</label>
+      <input type="text" id="projectId" placeholder="your-project-id">
+      <small style="color: #666; font-size: 12px;">Required. Your Google Cloud project ID for Vertex AI.</small>
+    </div>
+
+    <div class="form-group">
+      <label for="region">GCP Region:</label>
+      <select id="region">
+        <option value="us-central1">us-central1</option>
+        <option value="us-west1">us-west1</option>
+        <option value="europe-west1">europe-west1</option>
+        <option value="asia-northeast1">asia-northeast1</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="model">AI Model:</label>
+      <select id="model">
+        <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash (Experimental)</option>
+        <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+        <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="clientId">OAuth Client ID:</label>
+      <input type="text" id="clientId" placeholder="xxx.apps.googleusercontent.com">
+      <small style="color: #666; font-size: 12px;">Required. Your OAuth 2.0 client ID from Google Cloud Console.</small>
+    </div>
+
+    <h3>AI Configuration</h3>
+    <div class="form-group">
+      <label for="temperature">Temperature: <span id="temperatureValue">0.7</span></label>
+      <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+      <small style="color: #666; font-size: 12px;">Controls randomness. Lower = more focused, higher = more creative.</small>
+    </div>
+
+    <div class="form-group">
+      <label for="maxTokens">Max Tokens: <span id="maxTokensValue">2048</span></label>
+      <input type="range" id="maxTokens" min="100" max="8192" step="100" value="2048">
+      <small style="color: #666; font-size: 12px;">Maximum response length. Higher = longer responses.</small>
+    </div>
+
+    <h3>Behavior Settings</h3>
+    <div class="form-group">
+      <label style="display: flex; align-items: center; gap: 8px;">
+        <input type="checkbox" id="enableMutationWatching" checked>
+        Enable mutation watching
+      </label>
+      <small style="color: #666; font-size: 12px;">Detects dynamic content changes for better task planning.</small>
+    </div>
+
+    <div class="form-group">
+      <label style="display: flex; align-items: center; gap: 8px;">
+        <input type="checkbox" id="humanizedInput" checked>
+        Use humanized input simulation
+      </label>
+      <small style="color: #666; font-size: 12px;">Mimics human typing patterns to avoid detection.</small>
+    </div>
+
+    <div style="display: flex; gap: 8px; margin-top: 20px;">
+      <button id="saveButton">Save Settings</button>
+      <button id="testConnectionButton" style="background: #34a853;">Test Connection</button>
+    </div>
+
+    <div id="status" class="status" style="display: none;"></div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
