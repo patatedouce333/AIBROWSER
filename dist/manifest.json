@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Cometeor - AI Web Assistant",
+  "version": "1.0.0",
+  "description": "AI-powered web automation with Vertex AI",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "tabs",
+    "identity",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "https://*.googleapis.com/*",
+    "https://*.vertexai.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "sidebar.html",
+    "default_title": "Cometeor"
+  },
+  "options_page": "options.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["offscreen.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
