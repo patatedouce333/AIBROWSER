@@ -1,0 +1,2 @@
+Test de connectivité GitHub - 2026-05-13
+Ce fichier vérifie que le push vers le dépôt patatedouce333/aibrowser fonctionne correctement.
