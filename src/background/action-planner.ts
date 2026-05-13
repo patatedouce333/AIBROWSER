@@ -1,5 +1,5 @@
 // AI-powered action planner for web automation tasks
-import { VertexClient } from './vertex-client';
+import { AiClient } from './ai-client';
 import { ContextManager } from './context-manager';
 import { Plan, PageSnapshot } from '../shared/messages';
 
@@ -9,7 +9,7 @@ export class ActionPlanner {
 
     const prompt = this.buildPlanningPrompt(taskDescription, context);
 
-    const aiResponse = await VertexClient.generateContent(prompt, {
+    const aiResponse = await AiClient.generateContent(prompt, {
       temperature: 0.1, // Low temperature for deterministic planning
       maxTokens: 2048,
     });

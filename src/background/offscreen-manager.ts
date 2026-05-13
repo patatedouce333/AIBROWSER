@@ -52,7 +52,7 @@ export class OffscreenManager {
 
       return new Promise((resolve, reject) => {
         const chrome = getChrome();
-        chrome.runtime.sendMessage(message, (response) => {
+        chrome.runtime.sendMessage(message, (response: any) => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
           } else {

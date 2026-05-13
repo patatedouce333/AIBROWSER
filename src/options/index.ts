@@ -1,67 +1,60 @@
-// Options page script
 console.log('Cometeor options loaded');
 
 interface CometeorSettings {
-  projectId: string;
-  region: string;
+  inception_api_key: string;
   model: string;
-  clientId: string;
-  enableMutationWatching: boolean;
-  humanizedInput: boolean;
   maxTokens: number;
   temperature: number;
+  enableMutationWatching: boolean;
+  humanizedInput: boolean;
 }
 
 class OptionsPage {
-  private projectIdInput: HTMLInputElement;
-  private regionSelect: HTMLSelectElement;
+  private apiKeyInput: HTMLInputElement;
+  private toggleKeyButton: HTMLButtonElement;
   private modelSelect: HTMLSelectElement;
-  private clientIdInput: HTMLInputElement;
+  private temperatureInput: HTMLInputElement;
+  private maxTokensInput: HTMLInputElement;
   private mutationWatchingCheckbox: HTMLInputElement;
   private humanizedInputCheckbox: HTMLInputElement;
-  private maxTokensInput: HTMLInputElement;
-  private temperatureInput: HTMLInputElement;
   private saveButton: HTMLButtonElement;
-  private statusDiv: HTMLElement;
   private testConnectionButton: HTMLButtonElement;
+  private statusDiv: HTMLElement;
 
   constructor() {
-    this.projectIdInput = document.getElementById('projectId') as HTMLInputElement;
-    this.regionSelect = document.getElementById('region') as HTMLSelectElement;
+    this.apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
+    this.toggleKeyButton = document.getElementById('toggleKey') as HTMLButtonElement;
     this.modelSelect = document.getElementById('model') as HTMLSelectElement;
-    this.clientIdInput = document.getElementById('clientId') as HTMLInputElement;
+    this.temperatureInput = document.getElementById('temperature') as HTMLInputElement;
+    this.maxTokensInput = document.getElementById('maxTokens') as HTMLInputElement;
     this.mutationWatchingCheckbox = document.getElementById('enableMutationWatching') as HTMLInputElement;
     this.humanizedInputCheckbox = document.getElementById('humanizedInput') as HTMLInputElement;
-    this.maxTokensInput = document.getElementById('maxTokens') as HTMLInputElement;
-    this.temperatureInput = document.getElementById('temperature') as HTMLInputElement;
     this.saveButton = document.getElementById('saveButton') as HTMLButtonElement;
-    this.statusDiv = document.getElementById('status') as HTMLElement;
     this.testConnectionButton = document.getElementById('testConnectionButton') as HTMLButtonElement;
+    this.statusDiv = document.getElementById('status') as HTMLElement;
 
-    this.initializeUI();
+    this.init();
     this.loadSettings();
   }
 
-  private initializeUI() {
-    // Save button
+  private init() {
     this.saveButton.addEventListener('click', () => this.saveSettings());
-
-    // Test connection button
     this.testConnectionButton.addEventListener('click', () => this.testConnection());
 
-    // Input validation
-    this.projectIdInput.addEventListener('input', () => this.validateInputs());
-    this.clientIdInput.addEventListener('input', () => this.validateInputs());
-    this.maxTokensInput.addEventListener('input', () => this.validateInputs());
-    this.temperatureInput.addEventListener('input', () => this.validateInputs());
+    this.toggleKeyButton.addEventListener('click', () => {
+      const isPassword = this.apiKeyInput.type === 'password';
+      this.apiKeyInput.type = isPassword ? 'text' : 'password';
+      this.toggleKeyButton.textContent = isPassword ? 'Hide' : 'Show';
+    });
 
-    // Range input display
+    this.apiKeyInput.addEventListener('input', () => this.validateInputs());
+
     this.temperatureInput.addEventListener('input', () => {
-      this.updateRangeDisplay('temperatureValue', this.temperatureInput.value);
+      (document.getElementById('temperatureValue') as HTMLElement).textContent = this.temperatureInput.value;
     });
 
     this.maxTokensInput.addEventListener('input', () => {
-      this.updateRangeDisplay('maxTokensValue', this.maxTokensInput.value);
+      (document.getElementById('maxTokensValue') as HTMLElement).textContent = this.maxTokensInput.value;
     });
 
     this.validateInputs();
@@ -69,18 +62,21 @@ class OptionsPage {
 
   private async loadSettings() {
     try {
-      const settings = await this.getSettings();
-      this.projectIdInput.value = settings.projectId || '';
-      this.regionSelect.value = settings.region || 'us-central1';
-      this.modelSelect.value = settings.model || 'gemini-2.0-flash-exp';
-      this.clientIdInput.value = settings.clientId || '';
-      this.mutationWatchingCheckbox.checked = settings.enableMutationWatching ?? true;
-      this.humanizedInputCheckbox.checked = settings.humanizedInput ?? true;
-      this.maxTokensInput.value = String(settings.maxTokens || 2048);
-      this.temperatureInput.value = String(settings.temperature || 0.7);
+      const s = await new Promise<Partial<CometeorSettings>>((resolve) => {
+        chrome.storage.sync.get(null, (result) => resolve(result));
+      });
 
-      this.updateRangeDisplay('temperatureValue', this.temperatureInput.value);
-      this.updateRangeDisplay('maxTokensValue', this.maxTokensInput.value);
+      this.apiKeyInput.value = s.inception_api_key || '';
+      this.modelSelect.value = s.model || 'mercury-2';
+      this.temperatureInput.value = String(s.temperature ?? 0.2);
+      this.maxTokensInput.value = String(s.maxTokens ?? 4096);
+      this.mutationWatchingCheckbox.checked = s.enableMutationWatching ?? true;
+      this.humanizedInputCheckbox.checked = s.humanizedInput ?? true;
+
+      (document.getElementById('temperatureValue') as HTMLElement).textContent = this.temperatureInput.value;
+      (document.getElementById('maxTokensValue') as HTMLElement).textContent = this.maxTokensInput.value;
+
+      this.validateInputs();
     } catch (error) {
       console.error('Failed to load settings:', error);
       this.showStatus('Failed to load settings', 'error');
@@ -91,23 +87,18 @@ class OptionsPage {
     if (!this.validateInputs()) return;
 
     const settings: CometeorSettings = {
-      projectId: this.projectIdInput.value.trim(),
-      region: this.regionSelect.value,
+      inception_api_key: this.apiKeyInput.value.trim(),
       model: this.modelSelect.value,
-      clientId: this.clientIdInput.value.trim(),
+      temperature: parseFloat(this.temperatureInput.value),
+      maxTokens: parseInt(this.maxTokensInput.value),
       enableMutationWatching: this.mutationWatchingCheckbox.checked,
       humanizedInput: this.humanizedInputCheckbox.checked,
-      maxTokens: parseInt(this.maxTokensInput.value),
-      temperature: parseFloat(this.temperatureInput.value),
     };
 
     try {
       await chrome.storage.sync.set(settings);
-
-      // Notify background script of config change
       chrome.runtime.sendMessage({ type: 'CONFIG_UPDATED', config: settings });
-
-      this.showStatus('Settings saved successfully!', 'success');
+      this.showStatus('Settings saved!', 'success');
     } catch (error) {
       console.error('Failed to save settings:', error);
       this.showStatus('Failed to save settings', 'error');
@@ -115,109 +106,38 @@ class OptionsPage {
   }
 
   private async testConnection() {
-    this.setLoading(this.testConnectionButton, true);
+    this.testConnectionButton.disabled = true;
+    this.testConnectionButton.innerHTML = '<div class="loading"></div>Testing...';
 
     try {
       const response = await chrome.runtime.sendMessage({ type: 'TEST_CONNECTION' });
       if (response?.success) {
-        this.showStatus('Connection test successful!', 'success');
+        this.showStatus('Connection successful! Mercury API is responding.', 'success');
       } else {
-        this.showStatus('Connection test failed: ' + (response?.error || 'Unknown error'), 'error');
+        this.showStatus('Connection failed. Check your API key.', 'error');
       }
     } catch (error: any) {
-      this.showStatus('Connection test failed: ' + error.message, 'error');
+      this.showStatus('Connection failed: ' + error.message, 'error');
     }
 
-    this.setLoading(this.testConnectionButton, false);
+    this.testConnectionButton.disabled = false;
+    this.testConnectionButton.textContent = 'Test Connection';
   }
 
   private validateInputs(): boolean {
-    let isValid = true;
-
-    // Project ID validation
-    if (!this.projectIdInput.value.trim()) {
-      this.setInputError(this.projectIdInput, true);
-      isValid = false;
-    } else {
-      this.setInputError(this.projectIdInput, false);
-    }
-
-    // Client ID validation
-    if (!this.clientIdInput.value.trim()) {
-      this.setInputError(this.clientIdInput, true);
-      isValid = false;
-    } else {
-      this.setInputError(this.clientIdInput, false);
-    }
-
-    // Max tokens validation
-    const maxTokens = parseInt(this.maxTokensInput.value);
-    if (isNaN(maxTokens) || maxTokens < 100 || maxTokens > 8192) {
-      this.setInputError(this.maxTokensInput, true);
-      isValid = false;
-    } else {
-      this.setInputError(this.maxTokensInput, false);
-    }
-
-    // Temperature validation
-    const temperature = parseFloat(this.temperatureInput.value);
-    if (isNaN(temperature) || temperature < 0 || temperature > 2) {
-      this.setInputError(this.temperatureInput, true);
-      isValid = false;
-    } else {
-      this.setInputError(this.temperatureInput, false);
-    }
-
-    this.saveButton.disabled = !isValid;
-    return isValid;
-  }
-
-  private setInputError(input: HTMLInputElement, hasError: boolean) {
-    if (hasError) {
-      input.style.borderColor = '#f44336';
-    } else {
-      input.style.borderColor = '#ddd';
-    }
-  }
-
-  private updateRangeDisplay(elementId: string, value: string) {
-    const element = document.getElementById(elementId);
-    if (element) {
-      element.textContent = value;
-    }
+    const apiKey = this.apiKeyInput.value.trim();
+    const valid = apiKey.startsWith('sk_') && apiKey.length > 10;
+    this.apiKeyInput.style.borderColor = apiKey.length === 0 ? '#ddd' : (valid ? '#34a853' : '#f44336');
+    this.saveButton.disabled = !valid;
+    return valid;
   }
 
   private showStatus(message: string, type: 'success' | 'error') {
     this.statusDiv.textContent = message;
     this.statusDiv.className = `status ${type}`;
     this.statusDiv.style.display = 'block';
-
-    if (type === 'success') {
-      setTimeout(() => {
-        this.statusDiv.style.display = 'none';
-      }, 3000);
-    }
-  }
-
-  private setLoading(button: HTMLButtonElement, loading: boolean) {
-    button.disabled = loading;
-    if (loading) {
-      button.innerHTML = '<div class="loading"></div> Testing...';
-    } else {
-      button.textContent = 'Test Connection';
-    }
-  }
-
-  private async getSettings(): Promise<Partial<CometeorSettings>> {
-    return new Promise((resolve) => {
-      chrome.storage.sync.get(null, (result) => {
-        resolve(result);
-      });
-    });
+    if (type === 'success') setTimeout(() => { this.statusDiv.style.display = 'none'; }, 3000);
   }
 }
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  new OptionsPage();
-});
+document.addEventListener('DOMContentLoaded', () => { new OptionsPage(); });

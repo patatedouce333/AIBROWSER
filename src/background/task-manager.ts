@@ -1,9 +1,9 @@
 // Task manager for orchestrating AI-powered web automation
-import { VertexClient } from './vertex-client';
 import { ActionPlanner } from './action-planner';
 import { ContextManager } from './context-manager';
 import { ActionExecutor } from './action-executor';
 import { TabManager } from './tab-manager';
+import { getChrome } from '../shared/dependency-container';
 import { Task, Plan, PageSnapshot } from '../shared/messages';
 
 export class TaskManager {
@@ -84,11 +84,12 @@ export class TaskManager {
 
   private async extractPageSnapshot(tabId: number): Promise<PageSnapshot> {
     return new Promise((resolve, reject) => {
+      const chrome = getChrome();
       const timeout = setTimeout(() => {
         reject(new Error('DOM extraction timeout'));
       }, 5000);
 
-      chrome.tabs.sendMessage(tabId, { type: 'EXTRACT_DOM' }, (response) => {
+      chrome.tabs.sendMessage(tabId, { type: 'EXTRACT_DOM' }, (response: any) => {
         clearTimeout(timeout);
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));

@@ -1,11 +1,12 @@
 {
   "name": "cometeor-extension",
   "version": "1.0.0",
-  "description": "Chrome Extension with Vertex AI integration",
+  "description": "Chrome Extension with Inception Mercury AI integration",
   "main": "dist/background.js",
   "scripts": {
-    "build": "webpack --mode=production",
+    "build": "webpack --mode=production && node scripts/copy-assets.js",
     "dev": "webpack --mode=development --watch",
+    "copy-assets": "node scripts/copy-assets.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts,.tsx"
   },
