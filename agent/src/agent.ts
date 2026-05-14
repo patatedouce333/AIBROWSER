@@ -2,6 +2,8 @@ import { ChromeManager, connectSession } from './browser';
 import { extractPageContext } from './a11y';
 import { generatePlan } from './planner';
 import { executePlan, ExecutionResult } from './executor';
+import { runWorkflow, WorkflowStep, WorkflowResult } from './workflow';
+export { WorkflowStep, WorkflowResult } from './workflow';
 
 const TASK_TIMEOUT_MS = 120_000;
 const MAX_CONCURRENT = 3;
@@ -50,6 +52,39 @@ class SessionManager {
       );
     } finally {
       this._active--;
+    }
+  }
+
+  async runWorkflow(steps: WorkflowStep[], config: AgentConfig): Promise<WorkflowResult> {
+    if (this._active >= MAX_CONCURRENT) {
+      throw new Error(`Too many concurrent tasks (max ${MAX_CONCURRENT})`);
+    }
+
+    this._active++;
+    try {
+      return await withTimeout(
+        this._executeWorkflow(steps, config),
+        TASK_TIMEOUT_MS,
+        'workflow'
+      );
+    } finally {
+      this._active--;
+    }
+  }
+
+  private async _executeWorkflow(steps: WorkflowStep[], config: AgentConfig): Promise<WorkflowResult> {
+    if (!config.apiKey) throw new Error('apiKey is required');
+
+    await ChromeManager.getInstance().ensureRunning();
+    const session = await connectSession('about:blank');
+
+    try {
+      return await runWorkflow(steps, session.client, { apiKey: config.apiKey, debug: config.debug });
+    } finally {
+      await session.close();
+      if (!config.keepAlive) {
+        await ChromeManager.getInstance().shutdown();
+      }
     }
   }
 
@@ -145,6 +180,13 @@ export async function runTask(
   config: AgentConfig
 ): Promise<TaskResult> {
   return SessionManager.getInstance().run(task, startUrl, config);
+}
+
+export async function runWorkflowTask(
+  steps: WorkflowStep[],
+  config: AgentConfig
+): Promise<WorkflowResult> {
+  return SessionManager.getInstance().runWorkflow(steps, config);
 }
 
 export function getActiveCount(): number {

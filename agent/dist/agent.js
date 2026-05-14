@@ -1,12 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.runTask = runTask;
+exports.runWorkflowTask = runWorkflowTask;
 exports.getActiveCount = getActiveCount;
 exports.shutdown = shutdown;
 const browser_1 = require("./browser");
 const a11y_1 = require("./a11y");
 const planner_1 = require("./planner");
 const executor_1 = require("./executor");
+const workflow_1 = require("./workflow");
 const TASK_TIMEOUT_MS = 120000;
 const MAX_CONCURRENT = 3;
 class SessionManager {
@@ -30,6 +32,33 @@ class SessionManager {
         }
         finally {
             this._active--;
+        }
+    }
+    async runWorkflow(steps, config) {
+        if (this._active >= MAX_CONCURRENT) {
+            throw new Error(`Too many concurrent tasks (max ${MAX_CONCURRENT})`);
+        }
+        this._active++;
+        try {
+            return await withTimeout(this._executeWorkflow(steps, config), TASK_TIMEOUT_MS, 'workflow');
+        }
+        finally {
+            this._active--;
+        }
+    }
+    async _executeWorkflow(steps, config) {
+        if (!config.apiKey)
+            throw new Error('apiKey is required');
+        await browser_1.ChromeManager.getInstance().ensureRunning();
+        const session = await (0, browser_1.connectSession)('about:blank');
+        try {
+            return await (0, workflow_1.runWorkflow)(steps, session.client, { apiKey: config.apiKey, debug: config.debug });
+        }
+        finally {
+            await session.close();
+            if (!config.keepAlive) {
+                await browser_1.ChromeManager.getInstance().shutdown();
+            }
         }
     }
     async _execute(task, startUrl, config) {
@@ -113,6 +142,9 @@ class SessionManager {
 }
 async function runTask(task, startUrl, config) {
     return SessionManager.getInstance().run(task, startUrl, config);
+}
+async function runWorkflowTask(steps, config) {
+    return SessionManager.getInstance().runWorkflow(steps, config);
 }
 function getActiveCount() {
     return SessionManager.getInstance().activeCount;

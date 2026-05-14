@@ -16,6 +16,7 @@ export interface PlannedAction {
   timeoutMs?: number;
   pressEnter?: boolean;
   reason: string;
+  language?: string;
 }
 
 const SYSTEM_PROMPT = `You are a browser automation agent. You receive:
@@ -41,6 +42,7 @@ Rules:
 - Set pressEnter: true for search/submit inputs
 - End every plan with a "done" step
 - Number steps with "step": 1, 2, 3...
+- Accept tasks in ANY language (French, Spanish, Arabic, Chinese, etc.) — plan in English action types but understand the task in its original language
 
 Return ONLY a valid JSON array. No markdown, no explanation.`;
 

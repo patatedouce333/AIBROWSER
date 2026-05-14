@@ -1,5 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
-import { runTask, getActiveCount, shutdown } from './agent';
+import { runTask, runWorkflowTask, getActiveCount, shutdown, WorkflowStep } from './agent';
 
 const app = express();
 app.use(express.json({ limit: '256kb' }));
@@ -67,6 +67,45 @@ app.post('/run', async (req: Request, res: Response) => {
   }
 });
 
+// POST /workflow
+app.post('/workflow', async (req: Request, res: Response) => {
+  const { steps, apiKey: bodyApiKey } = req.body as { steps: WorkflowStep[]; apiKey?: string };
+
+  if (!Array.isArray(steps) || steps.length === 0) {
+    return res.status(400).json({ error: 'steps must be a non-empty array' });
+  }
+
+  for (let i = 0; i < steps.length; i++) {
+    if (!steps[i].task) {
+      return res.status(400).json({ error: `steps[${i}].task is required` });
+    }
+  }
+
+  const apiKey = extractBearerToken(req) || bodyApiKey || ENV_API_KEY;
+  if (!apiKey) {
+    return res.status(401).json({ error: 'Inception API key required (Authorization: Bearer <key>)' });
+  }
+
+  if (getActiveCount() >= MAX_CONCURRENT) {
+    return res.status(429).json({ error: 'Too many concurrent requests, try again later' });
+  }
+
+  const timer = setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(504).json({ error: 'Workflow timed out (>120s)' });
+    }
+  }, REQUEST_TIMEOUT_MS);
+
+  try {
+    const result = await runWorkflowTask(steps, { apiKey, keepAlive: true });
+    clearTimeout(timer);
+    if (!res.headersSent) res.json(result);
+  } catch (err: any) {
+    clearTimeout(timer);
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /health
 app.get('/health', async (_req: Request, res: Response) => {
   const { ChromeManager } = await import('./browser');
@@ -81,7 +120,8 @@ app.get('/health', async (_req: Request, res: Response) => {
 
 const server = app.listen(PORT, () => {
   console.log(`Cometeor Agent HTTP API running on http://localhost:${PORT}`);
-  console.log(`  POST /run  { task, url }   (Authorization: Bearer <key>)`);
+  console.log(`  POST /run      { task, url }         (Authorization: Bearer <key>)`);
+  console.log(`  POST /workflow { steps: WorkflowStep[] }`);
   console.log(`  GET  /health`);
 });
 

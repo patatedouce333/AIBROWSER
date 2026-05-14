@@ -97,6 +97,41 @@ app.post('/run', async (req, res) => {
             res.status(500).json({ error: err.message });
     }
 });
+// POST /workflow
+app.post('/workflow', async (req, res) => {
+    const { steps, apiKey: bodyApiKey } = req.body;
+    if (!Array.isArray(steps) || steps.length === 0) {
+        return res.status(400).json({ error: 'steps must be a non-empty array' });
+    }
+    for (let i = 0; i < steps.length; i++) {
+        if (!steps[i].task) {
+            return res.status(400).json({ error: `steps[${i}].task is required` });
+        }
+    }
+    const apiKey = extractBearerToken(req) || bodyApiKey || ENV_API_KEY;
+    if (!apiKey) {
+        return res.status(401).json({ error: 'Inception API key required (Authorization: Bearer <key>)' });
+    }
+    if ((0, agent_1.getActiveCount)() >= MAX_CONCURRENT) {
+        return res.status(429).json({ error: 'Too many concurrent requests, try again later' });
+    }
+    const timer = setTimeout(() => {
+        if (!res.headersSent) {
+            res.status(504).json({ error: 'Workflow timed out (>120s)' });
+        }
+    }, REQUEST_TIMEOUT_MS);
+    try {
+        const result = await (0, agent_1.runWorkflowTask)(steps, { apiKey, keepAlive: true });
+        clearTimeout(timer);
+        if (!res.headersSent)
+            res.json(result);
+    }
+    catch (err) {
+        clearTimeout(timer);
+        if (!res.headersSent)
+            res.status(500).json({ error: err.message });
+    }
+});
 // GET /health
 app.get('/health', async (_req, res) => {
     const { ChromeManager } = await Promise.resolve().then(() => __importStar(require('./browser')));
@@ -110,7 +145,8 @@ app.get('/health', async (_req, res) => {
 });
 const server = app.listen(PORT, () => {
     console.log(`Cometeor Agent HTTP API running on http://localhost:${PORT}`);
-    console.log(`  POST /run  { task, url }   (Authorization: Bearer <key>)`);
+    console.log(`  POST /run      { task, url }         (Authorization: Bearer <key>)`);
+    console.log(`  POST /workflow { steps: WorkflowStep[] }`);
     console.log(`  GET  /health`);
 });
 let shuttingDown = false;

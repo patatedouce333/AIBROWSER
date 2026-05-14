@@ -25,6 +25,7 @@ Rules:
 - Set pressEnter: true for search/submit inputs
 - End every plan with a "done" step
 - Number steps with "step": 1, 2, 3...
+- Accept tasks in ANY language (French, Spanish, Arabic, Chinese, etc.) — plan in English action types but understand the task in its original language
 
 Return ONLY a valid JSON array. No markdown, no explanation.`;
 const CORRECTION_PROMPT = `Your previous response was not valid JSON.
