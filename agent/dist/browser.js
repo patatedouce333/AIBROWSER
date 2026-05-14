@@ -33,101 +33,152 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.launchChrome = launchChrome;
+exports.ChromeManager = void 0;
 exports.connectSession = connectSession;
-exports.killChrome = killChrome;
 const child_process_1 = require("child_process");
+const fs = __importStar(require("fs"));
+const os = __importStar(require("os"));
+const path = __importStar(require("path"));
 const CDP = __importStar(require("chrome-remote-interface"));
 const DEBUG_PORT = 9222;
-// Common Chrome paths across platforms
-const CHROME_PATHS = [
+const PROFILE_DIR = path.join(os.tmpdir(), 'agent-chrome-profile');
+const CHROME_CANDIDATES = [
     '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
     '/usr/bin/chromium-browser',
     '/usr/bin/chromium',
-    '/usr/bin/google-chrome-stable',
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
 ];
-let chromeProcess = null;
-async function findChrome() {
-    const { execSync } = require('child_process');
-    for (const p of CHROME_PATHS) {
-        try {
-            execSync(`test -f "${p}"`, { stdio: 'ignore' });
+function findChrome() {
+    for (const p of CHROME_CANDIDATES) {
+        if (fs.existsSync(p))
             return p;
+    }
+    throw new Error('Chrome/Chromium not found. Install google-chrome or chromium.\n' +
+        `Searched: ${CHROME_CANDIDATES.join(', ')}`);
+}
+class ChromeManager {
+    static getInstance() {
+        if (!ChromeManager._instance)
+            ChromeManager._instance = new ChromeManager();
+        return ChromeManager._instance;
+    }
+    constructor() {
+        this._process = null;
+        this._launchPromise = null;
+        this._ready = false;
+        process.on('exit', () => this._killSync());
+        process.on('SIGINT', () => { this._killSync(); process.exit(0); });
+        process.on('SIGTERM', () => { this._killSync(); process.exit(0); });
+    }
+    async ensureRunning(timeoutMs = 10000) {
+        // Already running
+        if (this._ready && this._process && !this._process.killed)
+            return;
+        // Already launching — wait on same promise (mutex)
+        if (this._launchPromise)
+            return this._launchPromise;
+        this._launchPromise = this._launch(timeoutMs).finally(() => {
+            this._launchPromise = null;
+        });
+        return this._launchPromise;
+    }
+    async _launch(timeoutMs) {
+        const chromePath = findChrome();
+        this._process = (0, child_process_1.spawn)(chromePath, [
+            `--remote-debugging-port=${DEBUG_PORT}`,
+            '--headless=new',
+            '--no-sandbox',
+            '--disable-gpu',
+            '--disable-dev-shm-usage',
+            '--disable-setuid-sandbox',
+            '--no-first-run',
+            '--no-default-browser-check',
+            '--disable-extensions',
+            `--user-data-dir=${PROFILE_DIR}`,
+        ], { stdio: 'ignore' });
+        this._process.on('exit', () => { this._ready = false; });
+        this._process.on('error', (err) => {
+            console.error('[ChromeManager] process error:', err.message);
+            this._ready = false;
+        });
+        await this._waitReady(timeoutMs);
+        this._ready = true;
+    }
+    async _waitReady(timeoutMs) {
+        const deadline = Date.now() + timeoutMs;
+        let lastErr = null;
+        while (Date.now() < deadline) {
+            try {
+                const c = await CDP({ port: DEBUG_PORT });
+                await c.close();
+                return;
+            }
+            catch (e) {
+                lastErr = e;
+                await sleep(250);
+            }
+        }
+        throw new Error(`Chrome did not start within ${timeoutMs}ms: ${lastErr?.message}`);
+    }
+    isAlive() {
+        return this._ready && !!this._process && !this._process.killed;
+    }
+    async shutdown() {
+        if (!this._process)
+            return;
+        this._process.kill('SIGTERM');
+        await Promise.race([
+            new Promise(res => this._process.on('exit', res)),
+            sleep(3000),
+        ]);
+        if (this._process && !this._process.killed)
+            this._process.kill('SIGKILL');
+        this._process = null;
+        this._ready = false;
+        // Clean profile
+        try {
+            fs.rmSync(PROFILE_DIR, { recursive: true, force: true });
         }
         catch { }
     }
-    // Try which
-    try {
-        return execSync('which google-chrome || which chromium-browser || which chromium', { encoding: 'utf8' }).trim();
-    }
-    catch { }
-    throw new Error('Chrome not found. Install google-chrome or chromium.');
-}
-async function launchChrome() {
-    const path = await findChrome();
-    console.log(`Launching Chrome: ${path}`);
-    chromeProcess = (0, child_process_1.spawn)(path, [
-        `--remote-debugging-port=${DEBUG_PORT}`,
-        '--headless=new',
-        '--no-sandbox',
-        '--disable-gpu',
-        '--disable-dev-shm-usage',
-        '--disable-setuid-sandbox',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--disable-extensions',
-        '--user-data-dir=/tmp/agent-chrome-profile',
-    ], { stdio: 'ignore', detached: false });
-    chromeProcess.on('error', (err) => {
-        console.error('Chrome process error:', err);
-    });
-    // Wait for Chrome to start accepting connections
-    await waitForChrome(5000);
-}
-async function waitForChrome(timeoutMs) {
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-        try {
-            const client = await CDP({ port: DEBUG_PORT });
-            await client.close();
-            return;
-        }
-        catch {
-            await sleep(200);
+    _killSync() {
+        if (this._process && !this._process.killed) {
+            this._process.kill('SIGKILL');
         }
     }
-    throw new Error(`Chrome did not start within ${timeoutMs}ms`);
 }
+exports.ChromeManager = ChromeManager;
 async function connectSession(url) {
     const client = await CDP({ port: DEBUG_PORT });
-    const { Page, Runtime, DOM, Input, Accessibility, Network } = client;
     await Promise.all([
-        Page.enable(),
-        Runtime.enable(),
-        DOM.enable(),
-        Accessibility.enable(),
-        Network.enable(),
+        withTimeout(client.Page.enable(), 5000, 'Page.enable'),
+        withTimeout(client.Runtime.enable(), 5000, 'Runtime.enable'),
+        withTimeout(client.DOM.enable(), 5000, 'DOM.enable'),
+        withTimeout(client.Accessibility.enable(), 5000, 'Accessibility.enable'),
+        withTimeout(client.Network.enable(), 5000, 'Network.enable'),
     ]);
     if (url) {
-        await Page.navigate({ url });
-        await Page.loadEventFired();
-        await sleep(500); // let JS settle
+        await withTimeout(client.Page.navigate({ url }), 10000, `navigate to ${url}`);
+        await withTimeout(new Promise(res => client.Page.loadEventFired(res)), 15000, 'page load');
+        await sleep(300);
     }
     return {
         client,
-        close: async () => { try {
-            await client.close();
-        }
-        catch { } },
+        close: async () => {
+            try {
+                await client.close();
+            }
+            catch { /* already closed */ }
+        },
     };
 }
-async function killChrome() {
-    if (chromeProcess) {
-        chromeProcess.kill();
-        chromeProcess = null;
-    }
+function withTimeout(p, ms, label) {
+    return Promise.race([
+        p,
+        sleep(ms).then(() => { throw new Error(`Timeout after ${ms}ms: ${label}`); }),
+    ]);
 }
 function sleep(ms) {
     return new Promise(r => setTimeout(r, ms));
