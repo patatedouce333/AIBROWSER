@@ -68,7 +68,7 @@ export class ActionExecutor {
           x: action.x,
           y: action.y,
         }
-      }, (response) => {
+      }, (response: any) => {
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
         } else if (response?.success) {
@@ -93,7 +93,7 @@ export class ActionExecutor {
           selector: action.selector,
           value: action.value,
         }
-      }, (response) => {
+      }, (response: any) => {
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
         } else if (response?.success) {
@@ -114,7 +114,7 @@ export class ActionExecutor {
           selector: action.selector,
           value: action.value,
         }
-      }, (response) => {
+      }, (response: any) => {
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
         } else if (response?.success) {
@@ -136,7 +136,7 @@ export class ActionExecutor {
           x: action.x,
           y: action.y,
         }
-      }, (response) => {
+      }, (response: any) => {
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
         } else if (response?.success) {
@@ -161,7 +161,7 @@ export class ActionExecutor {
           type: 'press_key',
           key: action.key,
         }
-      }, (response) => {
+      }, (response: any) => {
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
         } else if (response?.success) {

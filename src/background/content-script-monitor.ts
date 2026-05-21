@@ -86,7 +86,7 @@ export class ContentScriptHealthMonitor {
       chrome.tabs.sendMessage(
         tabId,
         { type: 'HEALTH_CHECK', payload: {} },
-        (response) => {
+        (response: any) => {
           clearTimeout(timeout);
 
           // Handle Chrome's error for disconnected content scripts
@@ -107,8 +107,6 @@ export class ContentScriptHealthMonitor {
           }
         }
       );
-    });
-  }
     });
   }
 

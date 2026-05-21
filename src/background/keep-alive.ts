@@ -56,7 +56,7 @@ const initAlarmListener = () => {
   try {
     const chrome = getChrome();
     if (typeof chrome !== 'undefined' && chrome.alarms && chrome.alarms.onAlarm) {
-      chrome.alarms.onAlarm.addListener((alarm) => {
+      chrome.alarms.onAlarm.addListener((alarm: chrome.alarms.Alarm) => {
         if (alarm.name === 'keep-alive') {
           console.log('Keep-alive alarm triggered');
           // No-op, just keeping SW alive
